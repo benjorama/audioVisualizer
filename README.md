@@ -1,4 +1,10 @@
-# README #
+Ben Macomb, Trevor Ohlinger
+CS 464 Computer Graphics
+Steven Cutchin
+11/15/17
+Final Project: Audio Visualizer
+
+
 
 This README would normally document whatever steps are necessary to get your application up and running.
 
