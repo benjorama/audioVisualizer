@@ -11,6 +11,7 @@ var audio;
 var analyser;
 var bufferLength;
 var dataArray;
+var fileName;
 function initWebAudio() {
   audio = new AudioContext();
   analyser = audio.createAnalyser();
@@ -21,7 +22,8 @@ function initWebAudio() {
   var request = new XMLHttpRequest();
 
   //Load mp3 here..
-  request.open('GET', 'BoxCat_Games_-_05_-_Battle_Boss.mp3', true);
+  //request.open('GET', 'BoxCat_Games_-_05_-_Battle_Boss.mp3', true);
+  request.open('GET', (document.getElementById("fileName").value), true);
   request.responseType = 'arraybuffer';
   request.onload = function () {
       var undecodedAudio = request.response;
