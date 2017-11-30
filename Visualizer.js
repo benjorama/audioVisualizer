@@ -5,6 +5,7 @@ function main() {
     initCanvas();
     initShaders();
     initGeometry();
+    loadTexture();
 
     gl.clearColor(0.4,0.4,0.4,1.0);
     gl.enable(gl.DEPTH_TEST);
@@ -27,9 +28,9 @@ function initWebAudio() {
     analyser = audio.createAnalyser();
     analyser.fftSize = 2048;
     bufferLength = analyser.frequencyBinCount;
-    spectrumData = new Float32Array(bufferLength);
+    spectrumData = new Uint8Array(bufferLength);
     waveformData = new Float32Array(bufferLength);
-    analyser.getFloatFrequencyData(spectrumData);
+    analyser.getByteFrequencyData(spectrumData);
     analyser.getFloatTimeDomainData(waveformData);
     var request = new XMLHttpRequest();
 
@@ -97,8 +98,12 @@ function initShaders() {
     shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
     gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
 
+    shaderProgram.textureCoordAttribute = gl.getAttribLocation(shaderProgram, "aTextureCoord");
+    gl.enableVertexAttribArray(shaderProgram.textureCoordAttribute);
+
     shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
     shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
+    shaderProgram.samplerUniform = gl.getUniformLocation(shaderProgram, "uSampler");
 }
 
 function getShader(gl, id) {
@@ -147,37 +152,89 @@ function setMatrixUniforms() {
 ///////////////////
 // Geometry Setup
 //////////////////
-var triangleVertexPositionBuffer;
-var squareVertexPositionBuffer;
+var gridVertexPositionBuffer;
+var gridVertexTextureCoordBuffer;
+var gridVertexIndexBuffer;
 function initGeometry() {
-    triangleVertexPositionBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, triangleVertexPositionBuffer);
-    var vertices = [
-        0.0,  1.0,  0.0,
-        -1.0, -1.0,  0.0,
-        1.0, -1.0,  0.0
-    ];
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-    triangleVertexPositionBuffer.itemSize = 3;
-    triangleVertexPositionBuffer.numItems = 3;
+    var xPoints = 10;
+    var zPoints = 10;
 
-    squareVertexPositionBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
-    vertices = [
-        1.0,  1.0,  0.0,
-        -1.0,  1.0,  0.0,
-        1.0, -1.0,  0.0,
-        -1.0, -1.0,  0.0
-    ];
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-    squareVertexPositionBuffer.itemSize = 3;
-    squareVertexPositionBuffer.numItems = 4;
+		var vertexPosition = [];
+    var textureCoords = [];
+
+		for (var i = 0; i < xPoints; i++) {
+		    var xCoord = 2 * (i/xPoints) - 1;
+				for (var j = 0; j < zPoints; j++) {
+				 		var zCoord = 2 * (j/zPoints) - 1;
+						vertexPosition.push(xCoord);
+						vertexPosition.push(Math.random() * (1.0 - (-1.0)) + -1.0);
+						vertexPosition.push(zCoord);
+
+            textureCoords.push(i/xPoints);
+						textureCoords.push(j/xPoints);
+				}
+		}
+
+    var vertexIndices = [];
+		for (var i = 0; i < xPoints - 1; i++) {
+				for (var j = 0; j < zPoints - 1; j++) {
+						//coords for first triangle
+						var leftCorner = (i * zPoints) + j;
+						var rightCorner = (i * zPoints) + j + zPoints;
+						var topRight = rightCorner + 1;
+
+						//first triangle
+						vertexIndices.push(leftCorner);
+						vertexIndices.push(rightCorner);
+						vertexIndices.push(topRight);
+
+						//second triangle
+						vertexIndices.push(topRight);
+						vertexIndices.push(leftCorner + 1);
+						vertexIndices.push(leftCorner);
+				}
+		}
+
+    gridVertexPositionBuffer = gl.createBuffer();
+		gl.bindBuffer(gl.ARRAY_BUFFER, gridVertexPositionBuffer);
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexPosition), gl.STATIC_DRAW);
+		gridVertexPositionBuffer.itemSize = 3;
+		gridVertexPositionBuffer.numItems = vertexPosition.length / 3;
+
+    gridVertexTextureCoordBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, gridVertexTextureCoordBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(textureCoords), gl.STATIC_DRAW);
+    gridVertexTextureCoordBuffer.itemSize = 2;
+    gridVertexTextureCoordBuffer.numItems = textureCoords.length / 2;
+
+    gridVertexIndexBuffer = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gridVertexIndexBuffer);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(vertexIndices), gl.STATIC_DRAW);
+    gridVertexIndexBuffer.itemSize = 1;
+    gridVertexIndexBuffer.numItems = vertexIndices.length;
 }
 
 /////////////////////////
 //  Texture Setup
 ////////////////////////
+var texture;
+function loadTexture() {
+    texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+}
 
+function audioToTexture(audioData, textureArray) {
+    for (let i = 0; i < audioData.length * 4; i++) {
+        textureArray[4 * i + 0] = audioData[i] // R
+        textureArray[4 * i + 1] = audioData[i] // G
+        textureArray[4 * i + 2] = audioData[i] // B
+        textureArray[4 * i + 3] = 255                  // A
+    }
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, audioData.length, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, textureArray)
+}
 
 /////////////////////////
 // Drawing and Animation
@@ -187,26 +244,30 @@ function draw() {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
-
     mat4.identity(mvMatrix);
+    mat4.translate(mvMatrix, [0.0, 0.0, -5.0]);
 
-    mat4.translate(mvMatrix, [-1.5, 0.0, -7.0]);
-    gl.bindBuffer(gl.ARRAY_BUFFER, triangleVertexPositionBuffer);
-    gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, triangleVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
-    setMatrixUniforms();
-    gl.drawArrays(gl.TRIANGLES, 0, triangleVertexPositionBuffer.numItems);
+    gl.bindBuffer(gl.ARRAY_BUFFER, gridVertexPositionBuffer);
+    gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, gridVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
-    mat4.translate(mvMatrix, [3.0, 0.0, 0.0]);
-    gl.bindBuffer(gl.ARRAY_BUFFER, squareVertexPositionBuffer);
-    gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, squareVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, gridVertexTextureCoordBuffer);
+    gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, gridVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.uniform1i(shaderProgram.samplerUniform, 0);
+
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gridVertexIndexBuffer);
     setMatrixUniforms();
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, squareVertexPositionBuffer.numItems);
+    gl.drawElements(gl.TRIANGLES, gridVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 }
 
 //Continually update the scene to animate the drawOscilloscope call.
 function animate() {
     requestAnimationFrame(animate);
-    analyser.getFloatFrequencyData(spectrumData);
+    analyser.getByteFrequencyData(spectrumData);
     analyser.getFloatTimeDomainData(waveformData);
+    var spectrumArray = new Uint8Array(4 * spectrumData.length)
+    audioToTexture(spectrumData, spectrumArray);
     draw();
 }
