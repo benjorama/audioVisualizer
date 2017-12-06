@@ -114,6 +114,7 @@ function initShaders() {
     shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
     shaderProgram.samplerUniform = gl.getUniformLocation(shaderProgram, "uSampler");
     shaderProgram.flatShadingUniform = gl.getUniformLocation(shaderProgram, "uFlatShading");
+    shaderProgram.flatScaleUniform = gl.getUniformLocation(shaderProgram, "uFlatScale");
 }
 
 function getShader(gl, id) {
@@ -245,8 +246,9 @@ function audioToTexture(audioData, textureArray, scale) {
         textureArray[4 * i + 2] = audioData[4 * i + 2] // B
         textureArray[4 * i + 3] = 255;				   // A
     }
-    var square = Math.sqrt(audioData.length);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, (textureArray.length * scale)/square, square * scale, 0, gl.RGBA, gl.UNSIGNED_BYTE, textureArray)
+    var scaledLength = textureArray.length * scale;
+    var width = scale * 100;
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, scaledLength / width, width, 0, gl.RGBA, gl.UNSIGNED_BYTE, textureArray)
 }
 
 /////////////////////////
@@ -275,8 +277,8 @@ function draw() {
 
     //Load new texture and scale
     var spectrumArray = new Uint8Array(spectrumData.length)
-    var scale = document.getElementById("slider2");
-    audioToTexture(spectrumData, spectrumArray, scale.value);
+    var scale = document.getElementById("slider2").value;
+    audioToTexture(spectrumData, spectrumArray, scale);
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -285,6 +287,8 @@ function draw() {
     //Specify Shading
     var shading = document.getElementById("flatShading").checked;
     gl.uniform1i(shaderProgram.flatShadingUniform, shading);
+    var flatScale = document.getElementById("slider3").value;
+    gl.uniform1f(shaderProgram.flatScaleUniform, flatScale);
 
     //Draw triangles
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gridVertexIndexBuffer);
