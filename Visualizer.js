@@ -7,6 +7,11 @@ function main() {
     initGeometry();
     loadTexture();
 
+    //enable mouse handling.
+   document.getElementById("glCanvas").onmousedown = handleMouseDown;
+   document.onmouseup = handleMouseUp;
+   document.onmousemove = handleMouseMove;
+
     gl.clearColor(0.4,0.4,0.4,1.0);
     gl.enable(gl.DEPTH_TEST);
 
@@ -29,9 +34,9 @@ function initWebAudio() {
     analyser.fftSize = 2048;
     bufferLength = analyser.frequencyBinCount;
     spectrumData = new Uint8Array(bufferLength);
-    waveformData = new Float32Array(bufferLength);
+    waveformData = new Uint8Array(bufferLength);
     analyser.getByteFrequencyData(spectrumData);
-    analyser.getFloatTimeDomainData(waveformData);
+    analyser.getByteTimeDomainData(waveformData);
     var request = new XMLHttpRequest();
 
     //Load mp3 here..
@@ -98,6 +103,7 @@ function initShaders() {
     shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
     gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
 
+
     shaderProgram.textureCoordAttribute = gl.getAttribLocation(shaderProgram, "aTextureCoord");
     gl.enableVertexAttribArray(shaderProgram.textureCoordAttribute);
 
@@ -156,8 +162,8 @@ var gridVertexPositionBuffer;
 var gridVertexTextureCoordBuffer;
 var gridVertexIndexBuffer;
 function initGeometry() {
-    var xPoints = 10;
-    var zPoints = 10;
+    var xPoints = 100;
+    var zPoints = 100;
 
 		var vertexPosition = [];
     var textureCoords = [];
@@ -167,7 +173,8 @@ function initGeometry() {
 				for (var j = 0; j < zPoints; j++) {
 				 		var zCoord = 2 * (j/zPoints) - 1;
 						vertexPosition.push(xCoord);
-						vertexPosition.push(Math.random() * (1.0 - (-1.0)) + -1.0);
+            vertexPosition.push(0);
+						//vertexPosition.push(Math.random() * (1.0 - (-1.0)) + -1.0);
 						vertexPosition.push(zCoord);
 
             textureCoords.push(i/xPoints);
@@ -221,37 +228,46 @@ var texture;
 function loadTexture() {
     texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 }
 
-function audioToTexture(audioData, textureArray) {
-    for (let i = 0; i < audioData.length * 4; i++) {
-        textureArray[4 * i + 0] = audioData[i] // R
-        textureArray[4 * i + 1] = audioData[i] // G
-        textureArray[4 * i + 2] = audioData[i] // B
-        textureArray[4 * i + 3] = 255                  // A
+function audioToTexture(audioData, textureArray, scale) {
+    for (let i = 0; i < audioData.length; i++) {
+        textureArray[4 * i + 0] = audioData[4 * i + 0] // R
+        textureArray[4 * i + 1] = audioData[4 * i + 1] // G
+        textureArray[4 * i + 2] = audioData[4 * i + 2] // B
+        textureArray[4 * i + 3] = 255;
     }
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, audioData.length, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, textureArray)
+    var square = Math.sqrt(audioData.length);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, (textureArray.length * scale)/square, square * scale, 0, gl.RGBA, gl.UNSIGNED_BYTE, textureArray)
 }
 
 /////////////////////////
 // Drawing and Animation
-//////////////////////////
+/////////////////////////
 function draw() {
     gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
     mat4.identity(mvMatrix);
-    mat4.translate(mvMatrix, [0.0, 0.0, -5.0]);
 
+    var zoom = document.getElementById("slider");
+    var scale = document.getElementById("slider2");
+    mat4.translate(mvMatrix, [0.0, 0.0, zoom.value]);
+
+    mat4.multiply(mvMatrix, textureRotationMatrix);
     gl.bindBuffer(gl.ARRAY_BUFFER, gridVertexPositionBuffer);
     gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, gridVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, gridVertexTextureCoordBuffer);
     gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, gridVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+
+    var spectrumArray = new Uint8Array(spectrumData.length)
+    audioToTexture(spectrumData, spectrumArray, scale.value);
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -266,8 +282,54 @@ function draw() {
 function animate() {
     requestAnimationFrame(animate);
     analyser.getByteFrequencyData(spectrumData);
-    analyser.getFloatTimeDomainData(waveformData);
-    var spectrumArray = new Uint8Array(4 * spectrumData.length)
-    audioToTexture(spectrumData, spectrumArray);
+    analyser.getByteTimeDomainData(waveformData);
     draw();
+}
+
+//////////////////
+// Helper functions
+/////////////////
+function degToRad(degrees) {
+    return degrees * Math.PI / 180;
+}
+
+//////////////////
+// Mouse Handling
+/////////////////
+var mouseDown = false;
+var lastMouseX = null;
+var lastMouseY = null;
+
+var textureRotationMatrix = mat4.create();
+mat4.identity(textureRotationMatrix);
+
+function handleMouseDown(event) {
+    mouseDown = true;
+    lastMouseX = event.clientX;
+    lastMouseY = event.clientY;
+}
+
+function handleMouseUp(event) {
+    mouseDown = false;
+}
+
+function handleMouseMove(event) {
+    if (!mouseDown) {
+        return;
+    }
+    var newX = event.clientX;
+    var newY = event.clientY;
+
+    var deltaX = newX - lastMouseX;
+    var newRotationMatrix = mat4.create();
+    mat4.identity(newRotationMatrix);
+    mat4.rotate(newRotationMatrix, degToRad(deltaX / 5), [0, 1, 0]);
+
+    var deltaY = newY - lastMouseY;
+    mat4.rotate(newRotationMatrix, degToRad(deltaY / 5), [1, 0, 0]);
+
+    mat4.multiply(newRotationMatrix, textureRotationMatrix, textureRotationMatrix);
+
+    lastMouseX = newX
+    lastMouseY = newY;
 }
