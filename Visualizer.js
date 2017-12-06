@@ -18,6 +18,10 @@ function main() {
     animate();
 }
 
+function reloadWebAudio() {
+	audio.close();
+    initWebAudio();
+}
 
 ///////////////////
 // Web audio setup
@@ -28,7 +32,7 @@ var bufferLength;
 var spectrumData;
 var waveformData;
 var fileName;
-function initWebAudio() {
+function initWebAudio() {	
     audio = new AudioContext();
     analyser = audio.createAnalyser();
     analyser.fftSize = 2048;
@@ -40,7 +44,6 @@ function initWebAudio() {
     var request = new XMLHttpRequest();
 
     //Load mp3 here..
-    //request.open('GET', 'BoxCat_Games_-_05_-_Battle_Boss.mp3', true);
     request.open('GET', (document.getElementById("fileName").value), true);
     request.responseType = 'arraybuffer';
     request.onload = function () {
@@ -239,7 +242,7 @@ function audioToTexture(audioData, textureArray, scale) {
         textureArray[4 * i + 0] = audioData[4 * i + 0] // R
         textureArray[4 * i + 1] = audioData[4 * i + 1] // G
         textureArray[4 * i + 2] = audioData[4 * i + 2] // B
-        textureArray[4 * i + 3] = 255;
+        textureArray[4 * i + 3] = 255;				   // A
     }
     var square = Math.sqrt(audioData.length);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, (textureArray.length * scale)/square, square * scale, 0, gl.RGBA, gl.UNSIGNED_BYTE, textureArray)
@@ -278,7 +281,7 @@ function draw() {
     gl.drawElements(gl.TRIANGLES, gridVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 }
 
-//Continually update the scene to animate the drawOscilloscope call.
+//Continually update the scene to animate the draw() call.
 function animate() {
     requestAnimationFrame(animate);
     analyser.getByteFrequencyData(spectrumData);
@@ -333,3 +336,9 @@ function handleMouseMove(event) {
     lastMouseX = newX
     lastMouseY = newY;
 }
+
+function clickedFlatCheckbox() {		
+	document.getElementById("gouraud").checked = !document.getElementById("flatShading").checked;
+}
+	
+

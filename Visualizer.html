@@ -13,11 +13,19 @@
     varying vec3 vVertexPosition;
     uniform sampler2D uSampler;
 
-    void main() {
-        float sCoord = floor(vTextureCoord.s * 16.0) / 16.0;
-				float tCoord = floor(vTextureCoord.t * 16.0) / 16.0;
-        gl_FragColor = texture2D(uSampler, vec2(sCoord, tCoord));
-    }
+	void main() {	
+		
+		// Flat Shading
+		float sCoord = floor(vTextureCoord.s * 16.0) / 16.0;
+		float tCoord = floor(vTextureCoord.t * 16.0) / 16.0;
+		gl_FragColor = texture2D(uSampler, vec2(sCoord, tCoord));	
+		
+		
+		// gouraud shading
+//		vec4 texturecolor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+//		gl_FragColor = texturecolor;
+		
+	}
   </script>
 
   <!--Vertex Shader-->
@@ -46,11 +54,16 @@
 <body onload="main()">
   <h1>Music Visualizer</h1>
   <canvas id="glCanvas" width="512" height="512"> OOPS </canvas>
+  
+  </br>
+  <input type="checkbox" id="flatShading" name="flatShading" onchange="clickedFlatCheckbox()" checked /> Flat Shading<br/>
+  <input type="checkbox" id="gouraud" name="gouraud" /> Gouraud Shading<br/>
+  
   <p>Move slide to the right to zoom in.</p>
-  <input type="range" id="slider" value="-5" min="-5" max="-1" step=".1">
-  <p></p>
-  <input type="range" id="slider2" value="0.2" min="0.01" max="1.0" step="0.01">
-	<td><b>Enter file name to open:</b>
-	<td> <input type="text" id="fileName" value="BoxCat_Games_-_05_-_Battle_Boss.mp3" />
+  <input type="range" id="slider" value="-5" min="-5" max="-1" step=".1"><br/>
+  <input type="range" id="slider2" value="0.2" min="0.01" max="1.0" step="0.01"><br/>
+  <b>Enter file name to open:</b><br/>
+  <input type="text" id="fileName" value="BoxCat_Games_-_05_-_Battle_Boss.mp3" /><br/>
+  <input type="button" id="reloadAudio" value="Reload Audio" onclick="reloadWebAudio()">
 </body>
 </html>
