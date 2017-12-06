@@ -32,7 +32,7 @@ var bufferLength;
 var spectrumData;
 var waveformData;
 var fileName;
-function initWebAudio() {	
+function initWebAudio() {
     audio = new AudioContext();
     analyser = audio.createAnalyser();
     analyser.fftSize = 2048;
@@ -113,6 +113,7 @@ function initShaders() {
     shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
     shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
     shaderProgram.samplerUniform = gl.getUniformLocation(shaderProgram, "uSampler");
+    shaderProgram.flatShadingUniform = gl.getUniformLocation(shaderProgram, "uFlatShading");
 }
 
 function getShader(gl, id) {
@@ -258,24 +259,34 @@ function draw() {
     mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
     mat4.identity(mvMatrix);
 
+    //Zoom in
     var zoom = document.getElementById("slider");
-    var scale = document.getElementById("slider2");
     mat4.translate(mvMatrix, [0.0, 0.0, zoom.value]);
 
+    //Rotate
     mat4.multiply(mvMatrix, textureRotationMatrix);
+
+    //Specify attributes
     gl.bindBuffer(gl.ARRAY_BUFFER, gridVertexPositionBuffer);
     gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, gridVertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, gridVertexTextureCoordBuffer);
     gl.vertexAttribPointer(shaderProgram.textureCoordAttribute, gridVertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
 
+    //Load new texture and scale
     var spectrumArray = new Uint8Array(spectrumData.length)
+    var scale = document.getElementById("slider2");
     audioToTexture(spectrumData, spectrumArray, scale.value);
 
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, texture);
     gl.uniform1i(shaderProgram.samplerUniform, 0);
 
+    //Specify Shading
+    var shading = document.getElementById("flatShading").checked;
+    gl.uniform1i(shaderProgram.flatShadingUniform, shading);
+
+    //Draw triangles
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, gridVertexIndexBuffer);
     setMatrixUniforms();
     gl.drawElements(gl.TRIANGLES, gridVertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
@@ -284,6 +295,7 @@ function draw() {
 //Continually update the scene to animate the draw() call.
 function animate() {
     requestAnimationFrame(animate);
+    //update audio samples
     analyser.getByteFrequencyData(spectrumData);
     analyser.getByteTimeDomainData(waveformData);
     draw();
@@ -337,8 +349,6 @@ function handleMouseMove(event) {
     lastMouseY = newY;
 }
 
-function clickedFlatCheckbox() {		
+function clickedFlatCheckbox() {
 	document.getElementById("gouraud").checked = !document.getElementById("flatShading").checked;
 }
-	
-
